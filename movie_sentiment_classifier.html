@@ -1,0 +1,330 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #fafaf8; color: #1a1a18; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+button { font-family: inherit; cursor: pointer; }
+textarea, input { font-family: inherit; }
+.app { max-width: 720px; margin: 0 auto; padding: 1.5rem 1rem; }
+.back-btn { display: flex; align-items: center; gap: 6px; background: none; border: none; color: #666; font-size: 14px; padding: 0; margin-bottom: 1.5rem; cursor: pointer; }
+.back-btn:hover { color: #333; }
+.score-bar-wrap { display: flex; align-items: center; gap: 8px; }
+.score-bar-track { flex: 1; height: 6px; background: #e8e6e0; border-radius: 3px; overflow: hidden; }
+.score-bar-fill { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
+.tag { font-size: 10px; font-weight: 500; padding: 2px 8px; border-radius: 20px; }
+.tag-new { background: #EEEDFE; color: #534AB7; border: 0.5px solid #AFA9EC; }
+.tag-pos { background: #C0DD97; color: #3B6D11; }
+.tag-neg { background: #F7C1C1; color: #A32D2D; }
+.movie-card { background: #fff; border: 0.5px solid #e0ddd5; border-radius: 12px; padding: 1.25rem; cursor: pointer; transition: border-color 0.15s, transform 0.1s; position: relative; }
+.movie-card:hover { border-color: #c0bdb5; transform: translateY(-2px); }
+.movies-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.metric-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 1.5rem; }
+.metric-card { background: #f1efe8; border-radius: 8px; padding: 14px 16px; }
+.metric-label { font-size: 12px; color: #5f5e5a; margin-bottom: 4px; }
+.metric-value { font-size: 22px; font-weight: 500; }
+.filter-bar { display: flex; gap: 8px; margin-bottom: 1.25rem; flex-wrap: wrap; }
+.filter-btn { padding: 6px 14px; font-size: 13px; border-radius: 20px; border: 0.5px solid #e0ddd5; background: #f1efe8; color: #5f5e5a; cursor: pointer; }
+.filter-btn.active { background: #E6F1FB; color: #185FA5; border-color: #85B7EB; font-weight: 500; }
+.detail-card { background: #fff; border: 0.5px solid #e0ddd5; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; }
+.stat-mini { background: #f1efe8; border-radius: 8px; padding: 10px 12px; }
+.stat-mini p:first-child { font-size: 11px; color: #5f5e5a; margin-bottom: 2px; }
+.stat-mini p:last-child { font-size: 20px; font-weight: 500; }
+.review-input { width: 100%; resize: vertical; padding: 10px 12px; font-size: 14px; line-height: 1.5; border: 0.5px solid #c0bdb5; border-radius: 8px; background: #fff; color: #1a1a18; margin-top: 4px; }
+.review-input:focus { outline: none; border-color: #378ADD; }
+.submit-btn { padding: 8px 20px; font-size: 14px; font-weight: 500; background: #185FA5; color: #fff; border: none; border-radius: 8px; cursor: pointer; transition: opacity 0.15s; }
+.submit-btn:disabled { background: #e0ddd5; color: #888; cursor: not-allowed; }
+.review-bubble { border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; }
+.review-bubble-pos { background: #EAF3DE; border: 0.5px solid #97C459; }
+.review-bubble-neg { background: #FCEBEB; border: 0.5px solid #F09595; }
+.result-badge { display: flex; align-items: center; gap: 8px; border-radius: 8px; padding: 6px 12px; }
+.result-pos { background: #EAF3DE; border: 0.5px solid #97C459; }
+.result-neg { background: #FCEBEB; border: 0.5px solid #F09595; }
+.page-title { margin-bottom: 1.5rem; }
+.loading-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #e0ddd5; border-top-color: #185FA5; border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 6px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (max-width: 560px) { .metric-cards { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+<div class="app">
+  <h2 class="sr-only">CineScore — Movie sentiment classification system</h2>
+  <div id="root"></div>
+</div>
+
+<script>
+const MOVIES = [
+  { id: 1, title: "Inception", year: 2010, genre: "Sci-Fi", poster: "🎬", description: "A thief who steals corporate secrets through dream-sharing technology.", isNew: false },
+  { id: 2, title: "The Dark Knight", year: 2008, genre: "Action", poster: "🦇", description: "Batman faces the Joker, a criminal mastermind who brings chaos to Gotham.", isNew: false },
+  { id: 3, title: "Interstellar", year: 2014, genre: "Sci-Fi", poster: "🌌", description: "A team of explorers travel through a wormhole in space.", isNew: false },
+  { id: 4, title: "Parasite", year: 2019, genre: "Thriller", poster: "🏠", description: "Two families become entwined in an unexpected way.", isNew: false },
+  { id: 5, title: "Dune: Part Two", year: 2024, genre: "Sci-Fi", poster: "🏜️", description: "Paul Atreides unites with the Fremen to seek revenge.", isNew: true },
+  { id: 6, title: "Oppenheimer", year: 2023, genre: "Drama", poster: "💥", description: "The story of J. Robert Oppenheimer and the atomic bomb.", isNew: true },
+  { id: 7, title: "Poor Things", year: 2023, genre: "Fantasy", poster: "⚗️", description: "The incredible tale about the fantastical evolution of Bella Baxter.", isNew: true },
+  { id: 8, title: "The Zone of Interest", year: 2023, genre: "Drama", poster: "🌿", description: "An SS officer and his wife build their dream life next to Auschwitz.", isNew: true },
+];
+
+const SEED = {
+  1: [
+    { id: 1, text: "Mind-blowing concept! The layers of dreams are incredibly creative.", label: 1, confidence: 0.97 },
+    { id: 2, text: "Too confusing and convoluted. I lost track of what was real.", label: 0, confidence: 0.82 },
+    { id: 3, text: "A masterpiece of modern cinema. Christopher Nolan at his finest!", label: 1, confidence: 0.99 },
+  ],
+  2: [
+    { id: 1, text: "Heath Ledger's Joker is one of the greatest performances ever.", label: 1, confidence: 0.99 },
+    { id: 2, text: "Overrated. The hype doesn't match the actual experience.", label: 0, confidence: 0.78 },
+  ],
+  3: [
+    { id: 1, text: "Visually stunning and emotionally powerful. Science is fascinating.", label: 1, confidence: 0.95 },
+    { id: 2, text: "The ending was a huge disappointment that ruined the whole film.", label: 0, confidence: 0.88 },
+    { id: 3, text: "One of the most beautiful movies I've seen in IMAX.", label: 1, confidence: 0.96 },
+  ],
+  4: [
+    { id: 1, text: "Bong Joon-ho crafted something truly unique and thought-provoking.", label: 1, confidence: 0.97 },
+    { id: 2, text: "Absolutely deserved every award. Social commentary at its best.", label: 1, confidence: 0.98 },
+  ],
+  5: [
+    { id: 1, text: "Denis Villeneuve has created an epic sci-fi masterpiece!", label: 1, confidence: 0.97 },
+    { id: 2, text: "Zendaya and Timothée Chalamet are absolutely mesmerizing together.", label: 1, confidence: 0.93 },
+  ],
+  6: [
+    { id: 1, text: "Cillian Murphy delivers a career-defining performance.", label: 1, confidence: 0.96 },
+    { id: 2, text: "Three hours of pure cinematic brilliance. Nolan's best work.", label: 1, confidence: 0.95 },
+    { id: 3, text: "Overly long and self-indulgent. Could be cut by an hour.", label: 0, confidence: 0.81 },
+  ],
+  7: [
+    { id: 1, text: "Emma Stone is absolutely extraordinary. Bizarre yet brilliant.", label: 1, confidence: 0.94 },
+    { id: 2, text: "Deeply disturbing content wrapped in a pretentious package.", label: 0, confidence: 0.85 },
+  ],
+  8: [
+    { id: 1, text: "Haunting and profound. A necessary film about the banality of evil.", label: 1, confidence: 0.91 },
+    { id: 2, text: "Slow and hard to watch, but that's precisely the point.", label: 1, confidence: 0.72 },
+  ],
+};
+
+let allReviews = JSON.parse(JSON.stringify(SEED));
+let selectedMovie = null;
+let filter = "all";
+let classifying = false;
+let lastResult = null;
+
+function getStats(reviews) {
+  const total = reviews.length;
+  const positive = reviews.filter(r => r.label === 1).length;
+  const score = total === 0 ? 0 : Math.round(positive / total * 100);
+  return { total, positive, negative: total - positive, score };
+}
+
+function getRec(score, total) {
+  if (total === 0) return { text: "No reviews yet", color: "#888", icon: "?" };
+  if (score >= 75) return { text: "Worth watching!", color: "#3B6D11", icon: "✓" };
+  if (score >= 50) return { text: "Mixed opinions", color: "#BA7517", icon: "~" };
+  return { text: "Skip it", color: "#A32D2D", icon: "✕" };
+}
+
+function scoreBarHTML(score) {
+  const c = score >= 75 ? "#639922" : score >= 50 ? "#BA7517" : "#E24B4A";
+  return `<div class="score-bar-wrap">
+    <div class="score-bar-track"><div class="score-bar-fill" style="width:${score}%;background:${c}"></div></div>
+    <span style="font-size:13px;font-weight:500;min-width:36px;color:#666">${score}%</span>
+  </div>`;
+}
+
+async function loadReviewsFromBackend() {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/reviews`);
+    allReviews = await res.json();
+  } catch (e) {
+    console.error("Không thể kết nối đến Database Backend:", e);
+  }
+}
+
+async function classifyText(text) {
+  const res = await fetch(`${BACKEND_URL}/predict`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: text, movie_id: selectedMovie.id }) // Thêm movie_id ở đây
+  });
+  if (!res.ok) throw new Error("API Error");
+  return await res.json();
+}
+
+function renderDashboard() {
+  const allFlat = Object.values(allReviews).flat();
+  const total = allFlat.length;
+  const pos = allFlat.filter(r => r.label === 1).length;
+  const neg = total - pos;
+  const topM = MOVIES.map(m => { const s = getStats(allReviews[m.id]||[]); return {...m,...s}; }).filter(m=>m.total>0).sort((a,b)=>b.score-a.score)[0];
+
+  const filtered = MOVIES.filter(m => {
+    if (filter === "new") return m.isNew;
+    if (filter === "worth") return getStats(allReviews[m.id]||[]).score >= 75;
+    if (filter === "skip") { const s=getStats(allReviews[m.id]||[]); return s.total>0&&s.score<50; }
+    return true;
+  });
+
+  const cards = filtered.map(m => {
+    const s = getStats(allReviews[m.id]||[]);
+    const rec = getRec(s.score, s.total);
+    return `<div class="movie-card" onclick="openMovie(${m.id})">
+      ${m.isNew ? '<span class="tag tag-new" style="position:absolute;top:12px;right:12px">NEW</span>' : ''}
+      <div style="font-size:36px;margin-bottom:10px">${m.poster}</div>
+      <h3 style="font-size:16px;font-weight:500;margin-bottom:2px">${m.title}</h3>
+      <p style="font-size:12px;color:#666;margin-bottom:8px">${m.year} · ${m.genre}</p>
+      <p style="font-size:13px;color:#666;line-height:1.5;margin-bottom:12px">${m.description}</p>
+      ${scoreBarHTML(s.score)}
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
+        <span style="font-size:12px;color:#888">${s.total} review${s.total!==1?'s':''}</span>
+        <span style="font-size:13px;font-weight:500;color:${rec.color}">${rec.icon} ${rec.text}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  const filterBtns = [
+    { key: "all", label: "All movies" },
+    { key: "new", label: "🆕 New releases" },
+    { key: "worth", label: "✓ Worth watching" },
+    { key: "skip", label: "✕ Skip it" },
+  ].map(f => `<button class="filter-btn${filter===f.key?' active':''}" onclick="setFilter('${f.key}')">${f.label}</button>`).join('');
+
+  document.getElementById('root').innerHTML = `
+    <div class="page-title">
+      <h2 style="font-size:22px;font-weight:500;margin-bottom:4px">🎬 CineScore</h2>
+      <p style="font-size:14px;color:#666">AI-powered movie sentiment — SVM + TF-IDF model</p>
+    </div>
+    <div class="metric-cards">
+      <div class="metric-card"><div class="metric-label">Total reviews</div><div class="metric-value" style="color:#185FA5">${total}</div></div>
+      <div class="metric-card"><div class="metric-label">Positive</div><div class="metric-value" style="color:#3B6D11">${pos}</div></div>
+      <div class="metric-card"><div class="metric-label">Negative</div><div class="metric-value" style="color:#A32D2D">${neg}</div></div>
+      <div class="metric-card"><div class="metric-label">Top rated</div><div class="metric-value" style="font-size:14px;color:#534AB7">${topM ? topM.title : '—'}</div></div>
+    </div>
+    <div class="filter-bar">${filterBtns}</div>
+    <div class="movies-grid">${cards.length ? cards : '<p style="color:#888;font-size:14px;padding:2rem 0">No movies match this filter.</p>'}</div>
+    <div style="margin-top:2rem;padding:1rem 1.25rem;background:#f1efe8;border-radius:8px;font-size:13px;color:#666;line-height:1.6">
+      <strong style="color:#1a1a18;font-weight:500">About the model:</strong>
+      Classification uses a <strong style="font-weight:500">LinearSVC + TF-IDF</strong> model trained on 50K IMDb reviews (~93.5% accuracy).
+      New reviews are analyzed by Claude AI using the same sentiment logic. Click any movie to read and submit reviews.
+    </div>`;
+}
+
+function renderDetail(movie) {
+  const reviews = allReviews[movie.id] || [];
+  const stats = getStats(reviews);
+  const rec = getRec(stats.score, stats.total);
+
+  const reviewsHTML = [...reviews].reverse().map(r => `
+    <div class="review-bubble ${r.label===1?'review-bubble-pos':'review-bubble-neg'}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <p style="font-size:14px;line-height:1.5;color:#1a1a18;flex:1">${escapeHTML(r.text)}</p>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
+          <span class="tag ${r.label===1?'tag-pos':'tag-neg'}">${r.label===1?'Positive':'Negative'}</span>
+          <span style="font-size:11px;color:#888">${Math.round(r.confidence*100)}% confident</span>
+        </div>
+      </div>
+      ${r.reason ? `<p style="font-size:12px;color:#888;margin-top:6px;font-style:italic">${escapeHTML(r.reason)}</p>` : ''}
+    </div>`).join('');
+
+  const resultBadge = lastResult && lastResult._movieId === movie.id
+    ? lastResult.error
+      ? '<span style="font-size:13px;color:#A32D2D">Classification failed. Try again.</span>'
+      : `<div class="result-badge ${lastResult.label===1?'result-pos':'result-neg'}">
+          <span style="font-size:13px;font-weight:500;color:${lastResult.label===1?'#3B6D11':'#A32D2D'}">${lastResult.label===1?'✓ Positive':'✕ Negative'}</span>
+          <span style="font-size:12px;color:#666">${Math.round(lastResult.confidence*100)}% confidence</span>
+          ${lastResult.reason ? `<span style="font-size:12px;color:#888;font-style:italic">— ${escapeHTML(lastResult.reason)}</span>` : ''}
+        </div>`
+    : '<span></span>';
+
+  document.getElementById('root').innerHTML = `
+    <button class="back-btn" onclick="goBack()">← Back to movies</button>
+    <div class="detail-card">
+      <div style="display:flex;gap:1.5rem;align-items:flex-start">
+        <div style="font-size:56px;line-height:1">${movie.poster}</div>
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <h2 style="font-size:22px;font-weight:500">${movie.title}</h2>
+            ${movie.isNew ? '<span class="tag tag-new">NEW</span>' : ''}
+          </div>
+          <p style="font-size:13px;color:#666;margin-bottom:8px">${movie.year} · ${movie.genre}</p>
+          <p style="font-size:14px;line-height:1.6;color:#666;margin-bottom:16px">${movie.description}</p>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
+            <div class="stat-mini"><p style="font-size:11px;color:#666">Positive</p><p style="font-size:20px;font-weight:500;color:#3B6D11">${stats.positive}</p></div>
+            <div class="stat-mini"><p style="font-size:11px;color:#666">Negative</p><p style="font-size:20px;font-weight:500;color:#A32D2D">${stats.negative}</p></div>
+            <div class="stat-mini"><p style="font-size:11px;color:#666">Total</p><p style="font-size:20px;font-weight:500;color:#185FA5">${stats.total}</p></div>
+          </div>
+          ${scoreBarHTML(stats.score)}
+          <p style="font-size:14px;font-weight:500;color:${rec.color};margin-top:8px">${rec.icon} ${rec.text}</p>
+        </div>
+      </div>
+    </div>
+    <div class="detail-card">
+      <h3 style="font-size:15px;font-weight:500;margin-bottom:12px">Write a review</h3>
+      <textarea id="reviewInput" class="review-input" rows="3" placeholder="Share your thoughts about this movie…"></textarea>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;gap:12px;flex-wrap:wrap">
+        <div id="resultBadge">${resultBadge}</div>
+        <button id="submitBtn" class="submit-btn" onclick="submitReview()">Submit &amp; classify</button>
+      </div>
+    </div>
+    <div>
+      <h3 style="font-size:15px;font-weight:500;margin-bottom:12px">Reviews (${reviews.length})</h3>
+      ${reviews.length ? reviewsHTML : '<p style="font-size:14px;color:#888;padding:1rem 0">No reviews yet. Be the first!</p>'}
+    </div>`;
+}
+
+function escapeHTML(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function openMovie(id) {
+  selectedMovie = MOVIES.find(m => m.id === id);
+  lastResult = null;
+  renderDetail(selectedMovie);
+}
+
+function goBack() {
+  selectedMovie = null;
+  lastResult = null;
+  renderDashboard();
+}
+
+function setFilter(f) {
+  filter = f;
+  renderDashboard();
+}
+
+async function submitReview() {
+  const input = document.getElementById('reviewInput');
+  const btn = document.getElementById('submitBtn');
+  const text = input.value.trim();
+  if (!text || classifying) return;
+
+  classifying = true;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="loading-spinner"></span>Analyzing…';
+  document.getElementById('resultBadge').innerHTML = '';
+
+  try {
+    const result = await classifyText(text);
+    
+    // Đồng bộ lại toàn bộ bình luận từ database về giao diện
+    await loadReviewsFromBackend(); 
+    
+    lastResult = { ...result, _movieId: selectedMovie.id };
+    renderDetail(selectedMovie);
+  } catch (e) {
+    lastResult = { error: true, _movieId: selectedMovie.id };
+    document.getElementById('resultBadge').innerHTML = '<span style="font-size:13px;color:#A32D2D">Classification failed. Please try again.</span>';
+    btn.disabled = false;
+    btn.innerHTML = 'Submit & classify';
+  }
+  classifying = false;
+}
+
+// Tải dữ liệu từ database trước, sau đó mới vẽ giao diện dashboard ra màn hình
+loadReviewsFromBackend().then(() => {
+  renderDashboard();
+});
+</script>
+</body>
+</html>
